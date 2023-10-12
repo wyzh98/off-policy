@@ -20,14 +20,14 @@ def get_config():
     parser.add_argument("--cuda_deterministic",
                         action='store_false', default=True)
     parser.add_argument('--n_training_threads', type=int,
-                        default=1, help="Number of torch threads for training")
+                        default=128, help="Number of torch threads for training")
     parser.add_argument('--n_rollout_threads', type=int, default=1,
                         help="Number of parallel envs for training rollout")
     parser.add_argument('--n_eval_rollout_threads', type=int, default=1,
                         help="Number of parallel envs for evaluating rollout")
     parser.add_argument('--num_env_steps', type=int,
                         default=5000000, help="Number of env steps to train for")
-    parser.add_argument('--use_wandb', action='store_false', default=False,
+    parser.add_argument('--use_wandb', action='store_false', default=True,
                         help="Whether to use weights&biases, if not, use tensorboardX instead")
     parser.add_argument('--user_name', type=str, default="ezo")
 
