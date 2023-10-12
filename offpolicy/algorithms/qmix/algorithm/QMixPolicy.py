@@ -20,6 +20,7 @@ class QMixPolicy(RecurrentPolicy):
         self.obs_dim = get_dim_from_space(self.obs_space)
         self.act_space = policy_config["act_space"]
         self.act_dim = get_dim_from_space(self.act_space)
+        self.cent_obs_dim = policy_config["cent_obs_dim"]
         self.output_dim = sum(self.act_dim) if isinstance(self.act_dim, np.ndarray) else self.act_dim
         self.hidden_size = self.args.hidden_size
         self.central_obs_dim = policy_config["cent_obs_dim"]
@@ -32,6 +33,11 @@ class QMixPolicy(RecurrentPolicy):
         else:
             self.q_network_input_dim = self.obs_dim
 
+        if self.args.state_in_obs:
+            self.q_network_input_dim = self.obs_dim + self.cent_obs_dim
+        else:
+            self.q_network_input_dim = self.obs_dim
+
         # Local recurrent q network for the agent
         self.q_network = AgentQFunction(self.args, self.q_network_input_dim, self.act_dim, self.device)
 
@@ -39,7 +45,7 @@ class QMixPolicy(RecurrentPolicy):
             self.exploration = DecayThenFlatSchedule(self.args.epsilon_start, self.args.epsilon_finish, self.args.epsilon_anneal_time,
                                                   decay="linear")
 
-    def get_q_values(self, obs_batch, prev_action_batch, rnn_states, action_batch=None):
+    def get_q_values(self, obs_batch, prev_action_batch, state_batch, rnn_states, action_batch=None):
         """
         Computes q values using the given information.
         :param obs: (np.ndarray) agent observations from which to compute q values
@@ -56,6 +62,11 @@ class QMixPolicy(RecurrentPolicy):
             input_batch = torch.cat((obs_batch, prev_action_batch), dim=-1)
         else:
             input_batch = obs_batch
+
+        if self.args.state_in_obs:
+            input_batch = np.concatenate((obs_batch, state_batch), axis=-1)
+        else:
+            input_batch = input_batch
 
         q_batch, new_rnn_states = self.q_network(input_batch, rnn_states)
 
@@ -92,9 +103,9 @@ class QMixPolicy(RecurrentPolicy):
             # q_values is a column vector containing q values for the actions specified by action_batch
         return q_values
 
-    def get_actions(self, obs, prev_actions, rnn_states, available_actions=None, t_env=None, explore=False):
+    def get_actions(self, obs, prev_actions, state, rnn_states, available_actions=None, t_env=None, explore=False):
         """See parent class."""
-        q_values_out, new_rnn_states = self.get_q_values(obs, prev_actions, rnn_states)
+        q_values_out, new_rnn_states = self.get_q_values(obs, prev_actions, state, rnn_states)
         onehot_actions, greedy_Qs = self.actions_from_q(q_values_out, available_actions=available_actions, explore=explore, t_env=t_env)
         
         return onehot_actions, new_rnn_states, greedy_Qs

@@ -103,10 +103,12 @@ class QMix(Trainer):
             # get data related to the policy id
             pol_obs_batch = to_torch(obs_batch[p_id])
             curr_act_batch = to_torch(act_batch[p_id]).to(**self.tpdv)
+            state_batch = cent_obs_batch.repeat(5, 1, 1, 1)
 
             # stack over policy's agents to process them at once
             stacked_act_batch = torch.cat(list(curr_act_batch), dim=-2)
             stacked_obs_batch = torch.cat(list(pol_obs_batch), dim=-2)
+            stacked_state_batch = torch.cat(list(state_batch), dim=-2)
 
             if avail_act_batch[p_id] is not None:
                 curr_avail_act_batch = to_torch(avail_act_batch[p_id])
@@ -124,24 +126,26 @@ class QMix(Trainer):
                                                  stacked_act_batch))
 
             # sequence of q values for all possible actions
-            pol_all_q_seq, _ = policy.get_q_values(stacked_obs_batch, pol_prev_act_buffer_seq,
+            pol_all_q_seq, _ = policy.get_q_values(stacked_obs_batch, pol_prev_act_buffer_seq, stacked_state_batch,
                                                                             policy.init_hidden(-1, total_batch_size))
             # get only the q values corresponding to actions taken in action_batch. Ignore the last time dimension.
             if policy.multidiscrete:
                 pol_all_q_curr_seq = [q_seq[:-1] for q_seq in pol_all_q_seq]
                 pol_q_seq = policy.q_values_from_actions(pol_all_q_curr_seq, stacked_act_batch)
             else:
-                pol_q_seq = policy.q_values_from_actions(pol_all_q_seq[:-1], stacked_act_batch)
+                pol_q_seq = policy.q_values_from_actions(pol_all_q_seq[:-1], stacked_act_batch)  # eplen, bxn, 1
             agent_q_out_sequence = pol_q_seq.split(split_size=batch_size, dim=-2)
-            agent_q_seq.append(torch.cat(agent_q_out_sequence, dim=-1))
+            agent_q_seq.append(torch.cat(agent_q_out_sequence, dim=-1))  # every element: eplen, b, n
 
             with torch.no_grad():
                 if self.args.use_double_q:
                     # choose greedy actions from live, but get corresponding q values from target
                     greedy_actions, _ = policy.actions_from_q(pol_all_q_seq, available_actions=stacked_avail_act_batch)
-                    target_q_seq, _ = target_policy.get_q_values(stacked_obs_batch, pol_prev_act_buffer_seq, target_policy.init_hidden(-1, total_batch_size), action_batch=greedy_actions)
+                    target_q_seq, _ = target_policy.get_q_values(stacked_obs_batch, pol_prev_act_buffer_seq, stacked_state_batch,
+                                                                 target_policy.init_hidden(-1, total_batch_size), action_batch=greedy_actions)
                 else:
-                    _, _, target_q_seq = target_policy.get_actions(stacked_obs_batch, pol_prev_act_buffer_seq, target_policy.init_hidden(-1, total_batch_size))
+                    _, _, target_q_seq = target_policy.get_actions(stacked_obs_batch, pol_prev_act_buffer_seq, stacked_state_batch,
+                                                                   target_policy.init_hidden(-1, total_batch_size))
             # don't need the first Q values for next step
             target_q_seq = target_q_seq[1:]
             agent_nq_sequence = target_q_seq.split(split_size=batch_size, dim=-2)

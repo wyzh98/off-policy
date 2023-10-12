@@ -50,15 +50,6 @@ def make_eval_env(all_args):
 
 
 def parse_args(args, parser):
-    parser.add_argument('--map_name', type=str, default='3m',
-                        help="Which smac map to run on")
-    parser.add_argument('--use_available_actions', action='store_false',
-                        default=True, help="Whether to use available actions")
-    parser.add_argument('--use_same_share_obs', action='store_false',
-                        default=True, help="Whether to use available actions")
-    parser.add_argument('--use_global_all_local_state', action='store_true',
-                        default=False, help="Whether to use available actions")
-
     all_args = parser.parse_known_args(args)[0]
 
     return all_args
@@ -189,4 +180,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    # main(sys.argv[1:])
+    main([])

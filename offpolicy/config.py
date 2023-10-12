@@ -5,10 +5,15 @@ def get_config():
     parser = argparse.ArgumentParser(
         description="OFF-POLICY", formatter_class=argparse.RawDescriptionHelpFormatter)
 
+    parser.add_argument("--algorithm_name", type=str, default="qmix", choices=["rmatd3", "rmaddpg", "rmasac", "qmix", "vdn", "matd3", "maddpg", "masac", "mqmix", "mvdn"])
+    parser.add_argument('--map_name', type=str, default='5m_vs_6m')
+    parser.add_argument("--experiment_name", type=str, default="test")
+
+    parser.add_argument('--use_available_actions', action='store_false', default=True)
+    parser.add_argument('--use_same_share_obs', action='store_false', default=True)
+    parser.add_argument('--use_global_all_local_state', action='store_true', default=False)
+
     # prepare parameters
-    parser.add_argument("--algorithm_name", type=str, default="rmatd3", choices=[
-                        "rmatd3", "rmaddpg", "rmasac", "qmix", "vdn", "matd3", "maddpg", "masac", "mqmix", "mvdn"])
-    parser.add_argument("--experiment_name", type=str, default="check")
     parser.add_argument("--seed", type=int, default=1,
                         help="Random seed for numpy/torch")
     parser.add_argument("--cuda", action='store_false', default=True)
@@ -16,15 +21,15 @@ def get_config():
                         action='store_false', default=True)
     parser.add_argument('--n_training_threads', type=int,
                         default=1, help="Number of torch threads for training")
-    parser.add_argument('--n_rollout_threads', type=int,  default=1,
+    parser.add_argument('--n_rollout_threads', type=int, default=1,
                         help="Number of parallel envs for training rollout")
-    parser.add_argument('--n_eval_rollout_threads', type=int,  default=1,
+    parser.add_argument('--n_eval_rollout_threads', type=int, default=1,
                         help="Number of parallel envs for evaluating rollout")
     parser.add_argument('--num_env_steps', type=int,
-                        default=2000000, help="Number of env steps to train for")
-    parser.add_argument('--use_wandb', action='store_false', default=True,
+                        default=5000000, help="Number of env steps to train for")
+    parser.add_argument('--use_wandb', action='store_false', default=False,
                         help="Whether to use weights&biases, if not, use tensorboardX instead")
-    parser.add_argument('--user_name', type=str, default="zoeyuchao")
+    parser.add_argument('--user_name', type=str, default="ezo")
 
     # env parameters
     parser.add_argument('--env_name', type=str, default="StarCraft2")
@@ -42,7 +47,7 @@ def get_config():
                         help="Whether to use popart to normalize the target loss")
     parser.add_argument('--popart_update_interval_step', type=int, default=2,
                         help="After how many train steps popart should be updated")
-                        
+
     # prioritized experience replay
     parser.add_argument('--use_per', action='store_true', default=False,
                         help="Whether to use prioritized experience replay")
@@ -70,7 +75,7 @@ def get_config():
                         default=True, help="Whether to apply layernorm to the inputs")
     parser.add_argument('--use_orthogonal', action='store_false', default=True,
                         help="Whether to use Orthogonal initialization for weights and 0 initialization for biases")
-    parser.add_argument("--gain", type=float, default=0.01,
+    parser.add_argument("--gain", type=float, default=1,
                         help="The gain # of last action layer")
     parser.add_argument("--use_conv1d", action='store_true',
                         default=False, help="Whether to use conv1d")
@@ -78,6 +83,8 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks")
 
     # recurrent parameters
+    parser.add_argument('--state_in_obs', action='store_true', default=True,
+                        help="Whether the state (priviledged information) is included in the observation")
     parser.add_argument('--prev_act_inp', action='store_true', default=False,
                         help="Whether the actor input takes in previous actions as part of its input")
     parser.add_argument("--use_rnn_layer", action='store_false',
@@ -175,7 +182,7 @@ def get_config():
     # eval parameters
     parser.add_argument('--use_eval', action='store_false',
                         default=True, help="Whether to conduct the evaluation")
-    parser.add_argument('--eval_interval', type=int,  default=10000,
+    parser.add_argument('--eval_interval', type=int, default=20000,
                         help="After how many episodes the policy should be evaled")
     parser.add_argument('--num_eval_episodes', type=int, default=32,
                         help="How many episodes to collect for each eval")
@@ -185,7 +192,7 @@ def get_config():
                         help="After how many episodes of training the policy model should be saved")
 
     # log parameters
-    parser.add_argument('--log_interval', type=int, default=1000,
+    parser.add_argument('--log_interval', type=int, default=3000,
                         help="After how many episodes of training the policy model should be saved")
 
     # pretained parameters
