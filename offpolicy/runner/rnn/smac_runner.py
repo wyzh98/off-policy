@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import torch
 import time
@@ -51,6 +52,8 @@ class SMACRunner(RecRunner):
         env_info = {}
         p_id = "policy_0"
         policy = self.policies[p_id]
+        expert_policy = self.expert_policies[p_id]
+        expert_policy.q_network.eval()
 
         env = self.env if training_episode or warmup else self.eval_env
 
@@ -60,6 +63,7 @@ class SMACRunner(RecRunner):
 
         last_acts_batch = np.zeros((self.num_envs * len(self.policy_agents[p_id]), self.act_dim), dtype=np.float32)
         rnn_states_batch = np.zeros((self.num_envs * len(self.policy_agents[p_id]), self.hidden_size), dtype=np.float32)
+        expert_rnn_states_batch = copy.deepcopy(rnn_states_batch)
 
         # init
         episode_obs = {p_id : np.zeros((self.episode_length + 1, self.num_envs, self.num_agents, policy.obs_dim), dtype=np.float32) for p_id in self.policy_ids}
@@ -79,13 +83,18 @@ class SMACRunner(RecRunner):
             if warmup:
                 # completely random actions in pre-training warmup phase
                 acts_batch = policy.get_random_actions(obs_batch, avail_acts_batch)
+                expert_acts_batch = copy.deepcopy(acts_batch)
                 # get new rnn hidden state
                 _, rnn_states_batch, _ = policy.get_actions(obs_batch,
                                                             last_acts_batch,
                                                             share_obs_batch,
                                                             rnn_states_batch,
                                                             avail_acts_batch)
-
+                _, expert_rnn_states_batch, _ = expert_policy.get_actions(obs_batch,
+                                                                          last_acts_batch,
+                                                                          share_obs_batch,
+                                                                          expert_rnn_states_batch,
+                                                                          avail_acts_batch)
             else:
                 # get actions with exploration noise (eps-greedy/Gaussian)
                 acts_batch, rnn_states_batch, _ = policy.get_actions(obs_batch,
@@ -95,8 +104,16 @@ class SMACRunner(RecRunner):
                                                                      avail_acts_batch,
                                                                      t_env=self.total_env_steps,
                                                                      explore=explore)
+
+                expert_acts_batch, expert_rnn_states_batch, _ = expert_policy.get_actions(obs_batch,
+                                                                                          last_acts_batch,
+                                                                                          share_obs_batch,
+                                                                                          expert_rnn_states_batch,
+                                                                                          avail_acts_batch,
+                                                                                          explore=False)
             acts_batch = acts_batch if isinstance(acts_batch, np.ndarray) else acts_batch.cpu().detach().numpy()
             rnn_states_batch = rnn_states_batch if isinstance(rnn_states_batch, np.ndarray) else rnn_states_batch.cpu().detach().numpy()
+            expert_rnn_states_batch = expert_rnn_states_batch if isinstance(expert_rnn_states_batch, np.ndarray) else expert_rnn_states_batch.cpu().detach().numpy()
 
             last_acts_batch = acts_batch
 
@@ -104,6 +121,7 @@ class SMACRunner(RecRunner):
 
             # env step and store the relevant episode information
             next_obs, next_share_obs, rewards, dones, infos, next_avail_acts = env.step(env_acts)
+            il_rewards = ~ (acts_batch == expert_acts_batch).all(axis=1).reshape(rewards.shape) * -0.1
             if training_episode or warmup:
                 self.total_env_steps += self.num_envs
 
@@ -113,7 +131,7 @@ class SMACRunner(RecRunner):
             episode_obs[p_id][t] = obs
             episode_share_obs[p_id][t] = share_obs
             episode_acts[p_id][t] = env_acts
-            episode_rewards[p_id][t] = rewards
+            episode_rewards[p_id][t] = rewards + il_rewards
             # here dones store agent done flag of the next step
             episode_dones[p_id][t] = dones
             episode_dones_env[p_id][t] = dones_env

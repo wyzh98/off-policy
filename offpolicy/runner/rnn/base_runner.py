@@ -1,3 +1,4 @@
+import copy
 import os
 import numpy as np
 import wandb
@@ -135,6 +136,9 @@ class RecRunner(object):
         self.train = self.batch_train_q if self.algorithm_name in self.q_learning else self.batch_train
 
         self.policies = {p_id: Policy(config, self.policy_info[p_id]) for p_id in self.policy_ids}
+
+        self.expert_policies = copy.deepcopy(self.policies)
+        self.restore_expert(path="expert_model")
 
         if self.model_dir is not None:
             self.restorer()
@@ -335,6 +339,12 @@ class RecRunner(object):
             
         policy_mixer_state_dict = torch.load(str(self.model_dir) + '/mixer.pt')
         self.trainer.mixer.load_state_dict(policy_mixer_state_dict)
+
+    def restore_expert(self, path=None):
+        for pid in self.expert_policies:
+            print("load the expert model from {}".format(path))
+            policy_q_state_dict = torch.load(f'../../{path}/q_network.pt', map_location=self.device)
+            self.expert_policies[pid].q_network.load_state_dict(policy_q_state_dict)
 
     def log(self):
         """Log relevent training and rollout colleciton information.."""
