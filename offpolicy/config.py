@@ -83,7 +83,7 @@ def get_config():
                         help="Dimension of hidden layers for actor/critic networks")
 
     # recurrent parameters
-    parser.add_argument('--state_in_obs', action='store_true', default=True,
+    parser.add_argument('--state_in_obs', action='store_true', default=False,
                         help="Whether the state (priviledged information) is included in the observation")
     parser.add_argument('--prev_act_inp', action='store_true', default=False,
                         help="Whether the actor input takes in previous actions as part of its input")
