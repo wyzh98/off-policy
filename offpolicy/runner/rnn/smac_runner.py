@@ -78,7 +78,7 @@ class SMACRunner(RecRunner):
         while t < self.episode_length:
             obs_batch = np.concatenate(obs)
             avail_acts_batch = np.concatenate(avail_acts)
-            share_obs_batch = np.repeat(share_obs, 5, axis=0)
+            share_obs_batch = np.repeat(share_obs, self.num_agents, axis=0)
             # get actions for all agents to step the env
             if warmup:
                 # completely random actions in pre-training warmup phase
