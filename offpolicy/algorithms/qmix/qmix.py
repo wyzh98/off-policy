@@ -103,7 +103,7 @@ class QMix(Trainer):
             # get data related to the policy id
             pol_obs_batch = to_torch(obs_batch[p_id])
             curr_act_batch = to_torch(act_batch[p_id]).to(**self.tpdv)
-            state_batch = cent_obs_batch.repeat(5, 1, 1, 1)
+            state_batch = cent_obs_batch.repeat(self.num_agents, 1, 1, 1)
 
             # stack over policy's agents to process them at once
             stacked_act_batch = torch.cat(list(curr_act_batch), dim=-2)
